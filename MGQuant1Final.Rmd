@@ -1,5 +1,5 @@
 ---
-title: "Assighment 1- Quantitative Analysis"
+title: "Assignment 1- Quantitative Analysis"
 author: "Marissa Getts"
 date: "9/9/2020"
 output: html_document
