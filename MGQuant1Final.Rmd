@@ -1,0 +1,105 @@
+---
+title: "Assighment 1- Quantitative Analysis"
+author: "Marissa Getts"
+date: "9/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<b>Step 1: The Preparing</b><br>
+To begin my assignment I loaded the packages required to assemble and wrangle my dataset. dplyr kept coming up as I tested commands during other attempts at running this code, so I thought I'd just load it with the other libraries in the example code. 
+
+```{r loading packages, results="hide", message=FALSE}
+library(tidycensus)
+library(tidyverse)
+library(dplyr)
+```
+
+<b>Step 2: The Exploring</b><br>
+Worried about my famous indecision overcomplicating this assignment, I chose to isolate the household as the specific unit of analysis and sticking with 2018 and the ACS1 survey before I started digging into the possible variables. Like the example, I also narrowed down the data points wanted to see only the year, survey, var_code, var_label, data_type, and level variables for all of the household data points.<br><br>
+As I was trying to determine my area of interest I used command + F quite a bit, which was incredibly useful with so many variable options! I also relied heavily on the data type variable so that I didn't have to keep pulling up tables of the variables I was considering. 
+
+```{r looking through household variables, results="hide", message=FALSE}
+hh_vars_2018 <- pums_variables %>%
+distinct(year, survey, var_code, 
+           var_label, data_type, level) %>%
+filter(level == "housing", year == 2018, survey == "acs1")
+```
+
+<b>Step 3: The Choosing & Loading</b><br>
+Current events often push my research interests, so I decided to try to understand internet and technology access for American Indian and Alaskan Natives living in Utah. This question feels particularly important when considering methods of instruction and resource allocation for households with children in school age who may be asked to school from home without access to technology or space that allows online schooling. My variables are: 
+
+<i>Categorical:</i>  <ol><li>RACAIAN - American Indian/Alaska Native recode
+             <li> ACCESS - access to internet
+             <li> LAPTOP - laptop or desktop
+             <li> TABLET - tablet or other computer
+             <li> COMPOTHX - other computer equipment
+             <li> SMARTPHONE - smartphone
+             <li> BROADBND - cellular data plan for a smartphone or other mobile device
+             <li> HUPAC - age and presence of children under 18</ol>
+              
+<i>Continuous:</i>  <ol><li> HINCP - household income past 12 months
+             <li> BDSP - bedrooms per household
+             <li>NP - number of persons per household
+             <li> NOC - number of own children
+             <li> NRC - number of related children </ol>
+
+```{r load household level data, results="hide", message=FALSE}
+hh_data <- get_pums(variables = c("RACAIAN", 
+                                  "ACCESS",
+                                  "LAPTOP",
+                                  "TABLET",
+                                  "COMPOTHX",
+                                  "SMARTPHONE",
+                                  "BROADBND",
+                                  "HUPAC",
+                                  "HINCP", 
+                                  "BDSP",
+                                  "NP",
+                                  "NOC",
+                                  "NRC"),
+                        state = "UT",
+                        year = 2018, 
+                        survey = "acs1",
+                        recode = TRUE)
+```
+<b>Step 4: The Viewing</b><br>
+I, eager to view the workmanship of 5+ hours of work at this point, wanted to view a basic table with my data! This (also the environment tab) showed me that there were <i>a whopping 31,603 observations within my data set.</i> Although I considered breaking down the observations further by eliminating any non-American Indian/Native Alaskan from the dataset, I chose to keep them in order to provide better comparisons. I may change my code in the future to include all race categories for a more detailed racial comparison. 
+
+```{r view snapshot table of data}
+hh_data
+```
+<b>Step 5: The Cleaning</b><br>
+Unfortunately, upon viewing my data, it was not as beautiful as I would have liked it to be; the table showed some unwanted variables that were cluttering up the data set. :( After some trial and error with a variety of functions that didn't do quite what I wanted them to, the following command actually fully removed the unwanted variables from my dataset. 
+```{r remove unwanted variables}
+hh_data$SERIALNO <- NULL
+hh_data$SPORDER <- NULL
+hh_data$WGTP <- NULL
+hh_data$PWGTP <- NULL
+```
+
+<b>Step 6: The Renaming</b><br>
+I used the rename function to give my variables names that felt more personally intuitive.
+
+```{r rename variables}
+rename(hh_data, AIAN = RACAIAN,
+       INTERNET = ACCESS,
+      OTHERCOMPUTER = COMPOTHX,
+      CHILDRENAGE = HUPAC,
+      HINCOME = HINCP,
+      BEDROOMS = BDSP,
+      PPHOUSEHOLD = NP,
+      OWNCHILDREN = NOC,
+      RELCHILDREN = NRC)
+```
+
+<b>Step 6: The Saving</b><br>
+With my data all assembled and ready to go, it's time to save and push to GitHub! 
+
+```{r save data set, results="hide"}
+write_csv(hh_data, "MGQuant1Final.csv")
+```
+
