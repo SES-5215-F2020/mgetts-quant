@@ -1,0 +1,427 @@
+---
+title: "Assignment 3"
+author: "Marissa Getts"
+date: "9/21/2020"
+output: html_document
+---
+For all possible pairs of variables in your dataset, test the relationship between the two variables. Indicate
+the significance and (if appropriate) the magnitude of each relationship.
+As you work on this assignment, you may find that you’ve changed your mind about which variables you
+want to include in your dataset or how you want to define them. That’s not a problem; you can change
+your dataset at any time. Clearly indicate how you’ve decided to change it and why.
+
+Here's my dataset for this assignment - I pared down my data set to the following variables after spending too much time trying to manage hitting all the variables. 
+
+
+<i>Categorical:</i>  <ol>
+             <li> ACCESS - access to internet
+             <li> LAPTOP - laptop or desktop
+             <li> SMARTPHONE - smartphone</ol>
+
+<i>Continuous:</i>  <ol><li> HINCP - household income past 12 months
+             <li> BDSP - bedrooms per household
+             <li> NP - number of persons per household
+             <li> NOC - number of own children</ol>
+
+
+<i>run correlations for the following combinations:</i>
+<b>continuous/continuous</b>
+<ol><li>HINCP + BDSP
+<li>HINCP + NP
+<li>HINCP + NOC
+<li>BDSP + NP
+<li>BDSP + NOC
+<li>NP + NOC</ol>
+ 
+<b>continuous/categorical</b>
+<ol>
+<li>HINCP + LAPTOP
+<li>HINCP + SMARTPHONE
+<li>HINCP + ACCESS
+<li>BDSP + LAPTOP
+<li>BDSP + SMARTPHONE
+<li>BDSP + ACCESS
+<li>NP + LAPTOP
+<li>NP + SMARTPHONE
+<li>NP + ACCESS
+<li>NOC + LAPTOP
+<li>NOC + SMARTPHONE
+<li>NOC + ACCESS</ol>
+
+<b>categorical/categorical</b>
+<ol><li>ACCESS + LAPTOP
+<li>ACCESS + SMARTPHONE
+<li>LAPTOP + SMARTPHONE</ol>
+
+```{r, include=FALSE}
+library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(tidyverse)
+library(tidycensus)
+library(ggspatial)
+library(cartogram)
+library(ggthemes)
+library(dplyr)
+library(dbplyr)
+library(ggthemr)
+```
+
+```{r looking through household variables, include=FALSE}
+hh_vars_2018 <- pums_variables %>%
+distinct(year, survey, var_code, 
+           var_label, data_type, level) %>%
+filter(level == "household", year == 2018, survey == "acs1")
+```
+
+
+
+```{r load household level data, include=FALSE}
+hh_data <- get_pums(variables = c("ACCESS",
+                                  "LAPTOP",
+                                  "SMARTPHONE",
+                                  "HINCP", 
+                                  "BDSP",
+                                  "NP",
+                                  "NOC"),
+                        state = "UT",
+                        year = 2018, 
+                        survey = "acs1",
+                        recode = TRUE) %>%
+  filter(HINCP > 0, NOC > -1, BDSP > -1)
+```
+
+
+```{r remove unwanted variables, include=FALSE}
+hh_data$SERIALNO <- NULL
+hh_data$SPORDER <- NULL
+hh_data$WGTP <- NULL
+hh_data$PWGTP <- NULL
+```
+
+<b>continuous/continuous</b>
+<br>Based on the p-values, the correlations' strength and statistical significance are as follows: 
+<ol><li>household income + bedrooms per household: weak linear relationship (.35) & statistically significant p-value
+<li>household income + people per household: no linear relationship (.18) & statistically significant p-value
+<li>household income + own children per household: no linear relationship (.038) & statistically significant p-value
+<li>bedrooms per household + people per household: weak linear relationship (.41) & statistically significant p-value
+<li>bedrooms per household + own children per household: weak linear relationship (.30) + statistically significant p-value
+<li>people per household + own children per household: fairly strong linear relationship (.72) & statistically significant p-value</ol>
+
+
+```{r}
+correlation1 <- cor.test(hh_data$HINCP, hh_data$BDSP)
+
+correlation1
+
+correlation2 <- cor.test(hh_data$HINCP, hh_data$NP)
+
+correlation2
+
+correlation3 <- cor.test(hh_data$HINCP, hh_data$NOC)
+
+correlation3
+
+correlation4 <- cor.test(hh_data$BDSP, hh_data$NP)
+
+correlation4
+
+correlation5 <- cor.test(hh_data$BDSP, hh_data$NOC)
+
+correlation5
+
+correlation6 <- cor.test(hh_data$NP, hh_data$NOC)
+
+correlation6
+```
+
+
+
+
+
+
+```{r, include=FALSE}
+correlationHINCPNP <- cor.test(hh_data$HINCP, hh_data$NP)
+
+correlationHINCPNP
+```
+<br>Here is a graph showing the relationship between variables HINCP and NP. 
+
+```{r}
+ggplot(hh_data, aes(x = HINCP, y = NP)) +
+  geom_point(size = 0.5, alpha = 0.25, position = "jitter") +
+  geom_smooth() +
+  theme_bw() +
+  scale_x_continuous(name = "Household Income per Year",
+                     breaks = seq(0,1000000, by = 80000)) +
+  scale_y_continuous(name = "People Per Household", 
+                     breaks = seq(0, 18, by = 1)) +
+  annotate(geom = "text", x = 400000, y = 15, 
+           label = paste("Correlation (95-percent confidence):",
+                         prettyNum(correlationHINCPNP$conf.int[1], digits = 2), 
+                         "to",
+                        prettyNum(correlationHINCPNP$conf.int[2], digits = 2)),
+           hjust = 0)
+```
+<br>Here is a graph showing the relationship between variables HINCP and BDSP. 
+
+```{r, include=FALSE}
+correlationHINCPBDSP <- cor.test(hh_data$HINCP, hh_data$BDSP)
+
+correlationHINCPBDSP
+```
+
+```{r}
+ggplot(hh_data, aes(x = HINCP, y = BDSP)) +
+  geom_point(size = 0.5, alpha = 0.25, position = "jitter") +
+  geom_smooth() +
+  theme_bw() +
+  scale_x_continuous(name = "Household Income per Year",
+                     breaks = seq(0,1000000, by = 80000)) +
+  scale_y_continuous(name = "Bedrooms per Household", 
+                     breaks = seq(0, 9, by = 1)) +
+  annotate(geom = "text", x = 400000, y = 10, 
+           label = paste("Correlation (95-percent confidence):",
+                         prettyNum(correlationHINCPBDSP$conf.int[1], digits = 2), 
+                         "to",
+                         prettyNum(correlationHINCPBDSP$conf.int[2], digits = 2)),
+           hjust = 0)
+```
+<br>Here is a graph showing the relationship between variables HINCP and NOC. 
+
+```{r, include=FALSE}
+correlationHINCPNOC <- cor.test(hh_data$HINCP, hh_data$NOC)
+
+correlationHINCPNOC
+```
+
+```{r}
+ggplot(hh_data, aes(x = HINCP, y = NOC)) +
+  geom_point(size = 0.5, alpha = 0.25, position = "jitter") +
+  geom_smooth() +
+  theme_bw() +
+  scale_x_continuous(name = "Household Income per Year",
+                     breaks = seq(0, 1000000, by = 100000),
+                     labels = paste("$", 
+                                    prettyNum(seq(0, 1000000, by =100000),
+                                              big.mark = ","))) +
+  scale_y_continuous(name = "Number of Own Children Per Household", 
+                     breaks = seq(0, 10, by = 1))
+                      
+  annotate(geom = "text", x = 400000, y = 11, 
+           label = paste("Correlation (95-percent confidence):",
+                         prettyNum(correlationHINCPNOC$conf.int[1], digits = 2), 
+                         "to",
+                        prettyNum(correlationHINCPNOC$conf.int[2], digits = 2)),
+           hjust = 0)
+```
+
+<br>Here is a graph showing the relationship between variables NP and NOC. 
+
+```{r, include=FALSE}
+correlationNPNOC <- cor.test(hh_data$NP, hh_data$NOC)
+
+correlationNPNOC
+```
+```{r}
+ggplot(hh_data, aes(x = NP, y = NOC)) +
+  geom_point(size = 0.5, alpha = 0.25, position = "jitter") +
+  geom_smooth() +
+  theme_bw() +
+  scale_x_continuous(name = "People per household",
+                     breaks = seq(0, 20, by = 1),
+                     labels = paste(prettyNum(seq(0, 20, by =1),
+                                              big.mark = ","))) +
+  scale_y_continuous(name = "Number of Own Children Per Household", 
+                     breaks = seq(0, 10, by = 1))
+                      
+  annotate(geom = "text", x = 10, y = 8, 
+           label = paste("Correlation (95-percent confidence):",
+                         prettyNum(correlationNPNOC$conf.int[1], digits = 2), 
+                         "to",
+                        prettyNum(correlationNPNOC$conf.int[2], digits = 2)),
+           hjust = 0)
+```
+
+```{r, include=FALSE}
+correlationBDSPNOC <- cor.test(hh_data$BDSP, hh_data$NOC)
+
+correlationBDSPNOC
+```
+<br>Here is a graph showing the relationship between variables BDSP and NOC. 
+
+```{r}
+ggplot(hh_data, aes(x = jitter(BDSP), y = NOC)) +
+  geom_point(size = 0.5, alpha = 0.25, position = "jitter") +
+  geom_smooth() +
+  theme_bw() +
+  scale_x_continuous(name = "Bedrooms per household",
+                     breaks = seq(0, 20, by = 1),
+                     labels = paste(prettyNum(seq(0, 20, by = 1),
+                                              big.mark = ","))) +
+  scale_y_continuous(name = "Number of Own Children Per Household", 
+                     breaks = seq(0, 10, by = 1))
+```
+<br>Here is a graph showing the relationship between variables BDSP and NP. 
+
+```{r}
+ggplot(hh_data, aes(x = jitter(NP), y = BDSP)) +
+  geom_point(size = 0.5, alpha = 0.25, position = "jitter") +
+  geom_smooth() +
+  theme_bw() +
+  scale_x_continuous(name = "People per household",
+                     breaks = seq(0, 20, by = 1),
+                     labels = paste(prettyNum(seq(0, 20, by = 1),
+                                              big.mark = ","))) +
+  scale_y_continuous(name = "Number of bedrooms per household", 
+                     breaks = seq(0, 10, by = 1))
+ 
+```
+
+<b>continuous/categorical (3+ variables)</b>
+
+<ol><li>bedrooms per household + access to internet: statistically significant
+<li>people per household + access to internet: statistically significant
+<li>own children in household + access to internet: statistically significant
+<li>household income + access to internet: statistically significant</ol>
+
+
+```{r}
+anova1 <- aov(HINCP ~ ACCESS_label, data = hh_data)
+summary(anova1)
+anova2 <- aov(BDSP ~ ACCESS_label, data = hh_data)
+summary(anova2)
+anova3 <- aov(NP ~ ACCESS_label, data = hh_data)
+summary(anova3)
+anova4 <- aov(NOC ~ ACCESS_label, data = hh_data)
+summary(anova4)
+```
+<br> Here is a graph showing the relationship between internet access and household income. Although the graph is formatted poorly (sorry just did not have the time to fix it), those with no internet access have a markedly lower income than those who do access internet. 
+
+```{r}
+ggplot(hh_data, aes(x = ACCESS, y = HINCP)) +
+  geom_violin() +
+  scale_x_discrete(name = "Does the household have access to the internet?",
+                   labels = c("2"="Yes, w/o paying service provider", "1"="yes, by paying service provider", "3"="no internet access")) +
+   scale_y_continuous(name = "Household income per year?", 
+                     breaks = seq(0, 1000000, by = 100000),
+                     labels = paste("$", 
+                                    prettyNum(seq(0, 1000000, by = 100000),
+                                              big.mark = ","))) +
+                     theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+
+<b>continuous/binary</b>
+<ol><li>HINCP + LAPTOP: stasticially significant relationship - because p value and intervals both below 0
+<li>HINCP + SMARTPHONE: stasticially significant relationship - because p value and intervals both below 0
+<li>BDSP + LAPTOP: stasticially significant relationship - because p value and intervals both below 0
+<li>BDSP + SMARTPHONE: stasticially significant relationship - because p value and intervals both below 0
+<li>NP + LAPTOP: stasticially significant relationship - because p value and intervals both below 0
+<li>NP + SMARTPHONE: stasticially significant relationship - because p value and intervals both below 0
+<li>NOC + LAPTOP: stasticially significant relationship - because p value and intervals both below 0
+<li>NOC + SMARTPHONE: stasticially significant relationship - because p value and intervals both below 0</ol>
+
+
+```{r}
+difference1 = t.test(HINCP ~ LAPTOP == "1",
+                    data = hh_data)
+difference1
+
+difference2 = t.test(HINCP ~ SMARTPHONE == "1",
+                    data = hh_data)
+difference2
+
+difference3 = t.test(BDSP ~ LAPTOP == "1",
+                    data = hh_data)
+difference3
+
+difference4 = t.test(BDSP ~ SMARTPHONE == "1",
+                    data = hh_data)
+difference4
+
+difference5 = t.test(NP ~ LAPTOP == "1",
+                    data = hh_data)
+difference5
+
+difference6 = t.test(NP ~ SMARTPHONE == "1",
+                    data = hh_data)
+difference6
+
+difference7 = t.test(NOC ~ LAPTOP_label == "Yes",
+                    data = hh_data)
+difference7
+
+difference8 = t.test(NOC ~ SMARTPHONE_label == "Yes",
+                    data = hh_data)
+difference8
+```
+
+<br>The following graphs show the relationship between laptop access and household income, then smartphone access and household income, respectively. As would likely be expected, those with lower incomes are less likely to have access to a laptop or smartphone in their household.<br>
+
+
+```{r}
+ggplot(hh_data, aes(x = LAPTOP, y = HINCP)) +
+  geom_violin() +
+  scale_x_discrete(name = "Does someone in the household own a laptop?",
+                   labels = c("No", "Yes")) +
+   scale_y_continuous(name = "Household year income", 
+                     breaks = seq(0, 800000, by = 100000),
+                     labels = paste("$", 
+                                    prettyNum(seq(0, 800000, by = 100000),
+                                              big.mark = ","))) 
+  
+```
+
+
+```{r}
+ggplot(hh_data, aes(x = SMARTPHONE, y = HINCP)) +
+  geom_violin() +
+  scale_x_discrete(name = "household yearly income",
+                   labels = c("2"="No", "1"="Yes")) +
+   scale_y_continuous((name = "bedrooms per household"), 
+                     (breaks = seq(0, 900000, by = 100000)),
+                     labels = paste(prettyNum(seq(0, 900000, by = 100000),
+                                              big.mark = ",")))+
+    theme(axis.text.x = element_text(angle = 30, hjust = 1)) 
+```
+<b>categorical/categorical</b>
+<ol><li>ACCESS + LAPTOP: statistically significant linear relationship
+<li>ACCESS + SMARTPHONE:statistically significant linear relationship
+<li> LAPTOP + SMARTPHONE: statistically significant linear relationship
+</ol>
+
+```{r}
+chi_sq1 <- chisq.test(hh_data$ACCESS, hh_data$LAPTOP_label == "Yes") 
+chi_sq1
+chi_sq2 <- chisq.test(hh_data$ACCESS, hh_data$SMARTPHONE_label == "Yes") 
+chi_sq2
+chi_sq3 <- chisq.test(hh_data$LAPTOP, hh_data$SMARTPHONE_label == "Yes") 
+chi_sq3
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
