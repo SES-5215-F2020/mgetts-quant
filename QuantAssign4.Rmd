@@ -1,0 +1,77 @@
+---
+title: "Quant 4"
+author: "Marissa Getts"
+date: "9/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(tidyverse)
+library(tidycensus)
+library(ggspatial)
+library(cartogram)
+library(ggthemes)
+library(dplyr)
+library(dbplyr)
+library(ggthemr)
+```
+
+```{r looking through household variables, include=FALSE}
+hh_vars_2018 <- pums_variables %>%
+distinct(year, survey, var_code, 
+           var_label, data_type, level) %>%
+filter(level == "household", year == 2018, survey == "acs1")
+```
+
+
+```{r load household level data, include=FALSE}
+hh_data <- get_pums(variables = c("ACCESS",
+                                  "LAPTOP",
+                                  "SMARTPHONE",
+                                  "HINCP", 
+                                  "BDSP",
+                                  "NP",
+                                  "NOC"),
+                        state = "UT",
+                        year = 2018, 
+                        survey = "acs1",
+                        recode = TRUE) %>%
+  filter(HINCP > 0, NOC > -1, BDSP > -1)
+```
+
+### producing regression results
+
+```{r}
+model <- lm(HINCP ~ BDSP + NP + NOC + SMARTPHONE + LAPTOP + ACCESS, 
+            data = hh_data)
+
+options(scipen=999)
+
+summary(model)
+```
+### how well does the model fit the data?
+
+The multiple R squared value for this data set is .1505, meaning that this model predicts about 15% of the variation in income for the households in this dataset. Although I don't have much to compare it to, it is much more substantial than the example in the tutorial (4%). So, while it is nothing like 100%, it is likely a higher fit than many regression models (especially in the social sciences) may find. 
+
+### explanation of variable coefficients + significance
+
+<ol><li><b>income and number of bedrooms:</b> the coefficient for BDSP is 21469.3, meaning that for each additional bedroom, a household's income is expected to be $21,469 greater, controlling for number of people per household, number of own children per household, smartphone/laptop ownership, and access to internet. The p value is statistically significant. 
+
+<li><b>income and number of people</b>: the coefficient for NP is 7949.3, meaning that for each addition person, a household's income is expected to be $7949.30 greater, controlling for bedrooms per household, number of own children, smartphone/laptop ownership, and access to internet. The p value is statistically significant.
+
+<li><b>income and number of own children:</b> the coefficient for NOC is -10709.1, meaning that for each additional own child, a household's income is expected to be $10,709.10 less, controlling for bedrooms per household, number of people per household, smartphone/laptop ownership, and access to internet. The p value is statistically significant.
+
+<li><b>income and smartphone ownership:</b> the coefficient for SMARTPHONE2 is -18411.8, meaning that, on average and controlling for all other variables in this set, if a household does not own a smartphone, the household's income is expected to $18,411.80 lower than a household that does own a smartphone. The p value is statistically significant. 
+
+<li><b>income and laptop ownership:</b> the coefficient for LAPTOP2 is -19296.7, meaning that, on average and controlling for all other variables in the set, if a household does not own a laptop, the household's income is expected to be $19,296.70 lower than the income of a household that does own a laptop. The p value is statistically significant. 
+
+<li><b>income and internet access:</b> this particular set had multiple variables, so it is comparing them both against households that have internet access by "paying a cell phone company or internet service provider." the coefficient for ACCESS2 is -12800.4, meaning that, on average and controlling for all other variables in the set, if a household does not have access to the internet, the household's income is expected to be $12,800.40 lower than the income of a household that has internet access by paying a cell phone company or internet service provider. the coefficient for ACCESS3 is -1291.4, meaning that (if it was statistically significant) a household in this data set that has access to the internet *without* paying a cell phone company or internet service provider would be associated with an income $1291.4 lower than a household that has internet access by paying a cell phone company or internet service provider. ACCESS3, however, has a p value of .683, meaning that it is not statistically significant, and therefore predicts nothing. :) 
+
+</ol>
