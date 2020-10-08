@@ -1,0 +1,131 @@
+---
+title: "Quant Assignment 5"
+author: "Marissa Getts"
+date: "10/7/2020"
+output: html_document
+---
+
+
+```{r, include=FALSE}
+library(tidyverse)
+library(tidycensus)
+library(jtools)
+library(interactions)
+library(knitr)
+```
+
+```{r looking through household variables, include=FALSE}
+hh_vars_2018 <- pums_variables %>%
+distinct(year, survey, var_code, 
+           var_label, data_type, level) %>%
+filter(level == "household", year == 2018, survey == "acs1")
+```
+
+
+```{r load household level data, include=FALSE}
+hh_data <- get_pums(variables = c("ACCESS",
+                                  "LAPTOP",
+                                  "SMARTPHONE",
+                                  "HINCP", 
+                                  "BDSP",
+                                  "NP",
+                                  "NOC"),
+                        state = "UT",
+                        year = 2018, 
+                        survey = "acs1",
+                        recode = TRUE) %>%
+  filter(HINCP > 0, NOC > 0, BDSP > 0)
+```
+
+```{r, include=FALSE}
+options(scipen=999)
+```
+
+
+### original linear regression model
+
+again, my variables are as follows: 
+<i>Categorical:</i>  <ol>
+             <li> ACCESS - access to internet
+             <li> LAPTOP - laptop or desktop
+             <li> SMARTPHONE - smartphone</ol>
+
+<i>Continuous:</i>  <ol><li> HINCP - household income past 12 months
+             <li> BDSP - bedrooms per household
+             <li> NP - number of persons per household
+             <li> NOC - number of own children</ol>
+             
+Here is my original linear regression model that predicts household income based on internet access, bedrooms per household, persons per household, own children per household, and smartphone & laptop ownership. 
+
+```{r}
+ogmodel <- lm(HINCP ~ ACCESS_label + BDSP + NP + NOC + SMARTPHONE_label + LAPTOP_label, 
+            data = hh_data)
+
+summary(ogmodel)
+```
+
+<br>My comments on the r squared value were: "The multiple R squared value for this data set is .1329, meaning that this model predicts about 13.2% of the variation in income for the households in this dataset. Although I don't have much to compare it to, it is much more substantial than the example in the tutorial (4%). So, while it is nothing like 100%, it is likely a higher fit than many regression models (especially in the social sciences) may find."<br>
+
+### log transformed variable
+although I know that the instructions said to change an independent variable - those made little changes on the multiple R squared value, and I know that the most heavily skewed data was the dependent variable - household income. So, I started by log transforming that. It bumped the adjusted multiple R squared value to .2013 - a fairly substantial change for the full regression. Log transforming the dependent variable shifts the estimate from money to percentages. For example, this means that households that pay a cellphone company or Internet service provider are predicted to have a 25.85% higher household income than those who do not have access to internet at home.  
+
+```{r}
+logmodel1 <- lm(log(HINCP) ~ ACCESS_label + BDSP + NP + NOC + SMARTPHONE_label + LAPTOP_label, 
+            data = hh_data)
+
+summary(logmodel1)
+```
+<br>Adding a log transformation to bedrooms per household - this isn't nearly as skewed as HINCP, but there were a few households with a lot of bedrooms. This changes the adjusted R squared value by .0019, so not a ton! 
+
+
+```{r}
+logmodel2 <- lm(log(HINCP) ~ ACCESS_label + log(BDSP) + NP + NOC + SMARTPHONE_label + LAPTOP_label, 
+            data = hh_data)
+
+summary(logmodel2)
+```
+
+### continuous to categorical
+
+Because my independent continuous variables didn't have any easy or sensible continuous groupings, I created a new variable called RATIO. This ratio is the ratio of bedrooms to people in the house. No share means that there is more than one bedroom per person in the household, while share means that the ratio is equal to or less than one, meaning that there are either exactly enough or not enough bedrooms for each person to have their own room. Adding this value (because it is a reflection of other values already included) changes the adjusted R-squared value to .2031 from .2013. That variable's coefficient estimate means that households with an equal or lesser amount of bedrooms than the number of person per household make, on average, 11.6% higher incomes than those with more than one bedroom per person. I thought it was going to be the opposite, but I didn't take into account people who are married and share a bedroom (oops). If I controlled for that, it might be an interesting number to look at. The model is a ...slightly better fit but not by much (.0002 better), so I won't stick with this version!
+
+```{r}
+hh_data <- hh_data %>%
+  mutate(pplrmratio = BDSP / NP,
+         RATIO = case_when(pplrmratio > 1 ~ "noshare",
+                           pplrmratio <= 1 ~ "share"))
+
+logmodel3 <- lm(HINCP ~ ACCESS_label + LAPTOP_label + NOC + NP + BDSP + RATIO + SMARTPHONE_label, 
+            data = hh_data)
+
+summary(logmodel3)
+```
+
+### interaction term
+I decided to see how internet access and laptop ownership interacted for the original log model. The model fit went from an adjusted R-squared of 0.2013 to .2028 by adding these two variables as interactions terms. Although many of the interactions are not statistically significant - the two statistically significant interactions are that those who pay a cell phone company or internet service but do not have a laptop tend to have a lower income, while those who do pay for internet and have a laptop are significantly more likely to have a higher income. To be honest, I'm not exactly sure what the numbers are comparing to, though, on the interaction variables. 
+
+```{r}
+logmodel4 <- lm(HINCP ~ ACCESS_label:LAPTOP_label + NOC + NP + BDSP+ SMARTPHONE_label, 
+            data = hh_data)
+
+summary(logmodel4)
+```
+
+### conclusion and visualization
+The biggest difference in adjusted R-squared values didn't happen when I changed any of the independent variables (although I didn't include all the code here, I adjusted each of them and it made little difference), but when I used the log function on my dependent variable. HINCP had the highest skew rates, likely because of the nature of inequality in our country/state. Each of the models with the highest adjusted r-squared values had the log function applied to HINCP, with only extremely minor variations with other shifts. 
+
+```{r}
+ModelFit <- tibble(model = c(1, 2, 3, 4, 5),
+                   R_square = c(summary(ogmodel)$adj.r.squared,
+                                summary(logmodel1)$adj.r.squared,
+                                summary(logmodel2)$adj.r.squared,
+                                summary(logmodel3)$adj.r.squared,
+                                summary(logmodel4)$adj.r.squared))
+
+ggplot(ModelFit, aes(x = model, y = R_square)) +
+  geom_line() +
+  scale_x_continuous(breaks = breaks <- seq(1, 5, by = 1),
+                   labels = paste("Model", breaks)) +
+  scale_y_continuous(name = "Adjusted R-squared value") +
+  theme_bw()
+```
